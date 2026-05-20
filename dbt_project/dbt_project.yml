@@ -1,8 +1,7 @@
-name: 'yfinance_analytics'
+name: 'dbt_projectk'
 version: '1.0.0'
 
-# O profile conecta este projeto às credenciais do seu arquivo profiles.yml
-profile: 'yfinance_analytics_stack'
+profile: 'dbt_projectk'
 
 model-paths: ["models"]
 analysis-paths: ["analyses"]
@@ -16,10 +15,17 @@ clean-targets:
   - "dbt_packages"
 
 models:
-  yfinance_analytics:
+  dbt_project:
     bronze:
-      +materialized: view 
+      +materialized: view, 
+      +schema: bronze,
+      +tags: ['bronze', 'daily_ingestion']
+
     silver:
-      +materialized: ephemeral
+      +materialized: table,
+      +schema: silver,
+      +tags: ['cleaned', 'historical']
     gold:
-      +materialized: table
+      +materialized: table,
+      +schema: gold,
+      +tags: ['analytics', 'bi_ready']
