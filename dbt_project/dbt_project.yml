@@ -1,7 +1,7 @@
-name: 'dbt_projectk'
+name: 'yfinance_analytics'
 version: '1.0.0'
 
-profile: 'dbt_projectk'
+profile: 'yfinance_analytics_stack'
 
 model-paths: ["models"]
 analysis-paths: ["analyses"]
@@ -22,7 +22,7 @@ models:
       +tags: ['bronze', 'daily_ingestion']
 
     silver:
-      +materialized: table,
+      +materialized: incremental,
       +schema: silver,
       +tags: ['cleaned', 'historical']
     gold:
