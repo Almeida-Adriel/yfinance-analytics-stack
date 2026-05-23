@@ -1,0 +1,16 @@
+version: 2
+
+models:
+  - name: fct_stocks_metrics
+    description: "Tabela agregada da camada Gold com métricas diárias de performance, volatilidade e liquidez."
+    columns:
+      - name: stock_ticker
+        description: "Código de negociação da ação (Ex: AAPL)."
+      - name: date
+        description: "Data do pregão."
+      - name: daily_return_pct
+        description: "Retorno percentual comparado ao fechamento do dia anterior."
+      - name: intraday_amplitude
+        description: "Diferença entre o preço máximo e mínimo do dia (Volatilidade)."
+      - name: financial_volume
+        description: "Volume financeiro total movimentado no dia (Preço x Quantidade)."

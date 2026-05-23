@@ -1,0 +1,20 @@
+version: 1
+
+models:
+  - name: stg_stocks
+    description: "This model represents the cleaned and transformed stock price data from the raw 'stocks' source table. It includes renamed columns for better readability and is materialized as a view in the 'silver' schema."
+    columns:
+      - name: date
+        description: "The date of the stock price record."
+      - name: ticker
+        description: "The stock ticker symbol (e.g., AAPL, MSFT)."
+      - name: open_price
+        description: "The opening price of the stock on the given date."
+      - name: close_price
+        description: "The closing price of the stock on the given date."
+      - name: high_price
+        description: "The highest price of the stock on the given date."
+      - name: low_price
+        description: "The lowest price of the stock on the given date."
+      - name: trading_volume
+        description: "The trading volume of the stock on the given date."

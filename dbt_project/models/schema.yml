@@ -1,0 +1,23 @@
+version: 1
+
+sources:
+  - name: postgres
+    schema: public
+    tables:
+      - name: stocks
+        description: "This model contains the historical stock prices for various companies."
+        columns:
+          - name: date
+            description: "The date of the stock price record."
+          - name: ticker
+            description: "The stock ticker symbol (e.g., AAPL, MSFT)."
+          - name: open
+            description: "The opening price of the stock on the given date."
+          - name: close
+            description: "The closing price of the stock on the given date."
+          - name: high
+            description: "The highest price of the stock on the given date."
+          - name: low
+            description: "The lowest price of the stock on the given date."
+          - name: volume
+            description: "The trading volume of the stock on the given date."

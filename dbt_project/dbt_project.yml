@@ -15,17 +15,14 @@ clean-targets:
   - "dbt_packages"
 
 models:
-  dbt_project:
-    bronze:
-      +materialized: view, 
-      +schema: bronze,
-      +tags: ['bronze', 'daily_ingestion']
+  yfinance_analytics:
 
     silver:
-      +materialized: incremental,
-      +schema: silver,
+      +materialized: view
+      +schema: silver
       +tags: ['cleaned', 'historical']
+      
     gold:
-      +materialized: table,
-      +schema: gold,
+      +materialized: table
+      +schema: gold
       +tags: ['analytics', 'bi_ready']
