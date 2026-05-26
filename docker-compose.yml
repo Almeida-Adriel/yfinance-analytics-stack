@@ -1,0 +1,35 @@
+services:
+  # --- SERVIÇO DO AIRFLOW (ORQUESTRADOR & TRANSFORMAÇÃO DBT) ---
+  airflow-runner:
+    image: apache/airflow:2.9.1-python3.11
+    environment:
+      - AIRFLOW__CORE__LOAD_EXAMPLES=False
+      - _PIP_ADDITIONAL_REQUIREMENTS=-r /opt/airflow/requirements.txt
+      - AIRFLOW_CONSTRAINTS_LOCATION=https://raw.githubusercontent.com/apache/airflow/constraints-2.9.1/constraints-3.11.txt
+    volumes:
+      - ./app:/opt/airflow/app
+      - ./dags:/opt/airflow/dags
+      - ./dbt_project:/opt/airflow/dbt_project
+      - ./requirements.txt:/opt/airflow/requirements.txt
+    ports:
+      - "8080:8080"
+    entrypoint: /usr/bin/dumb-init -- /entrypoint
+    command: >
+      bash -c "airflow db migrate && 
+      airflow users create --username admin --firstname Admin --lastname Admin --role Admin --email admin@admin.com --password admin ; 
+      airflow webserver & airflow scheduler"
+
+  # --- SERVIÇO DO STREAMLIT (VISUALIZAÇÃO / DASHBOARD) ---
+  streamlit-app:
+    image: python:3.11-slim
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - .:/workspace
+    working_dir: /workspace
+    ports:
+      - "8501:8501"
+    command: >
+      sh -c "pip install -r requirements.txt && 
+      streamlit run app/app.py --server.port=8501 --server.address=0.0.0.0"
+    restart: always
