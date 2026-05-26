@@ -1,0 +1,8 @@
+protobuf>=4.21.0,<5.0.0
+yfinance
+pandas
+streamlit
+sqlalchemy
+psycopg2-binary
+dbt-postgres
+dotenv
