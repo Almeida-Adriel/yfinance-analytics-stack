@@ -61,11 +61,12 @@ git clone [https://github.com/Almeida-Adriel/yfinance-analytics-stack.git](https
 cd yfinance-analytics-stack
 ```
 
-### 4. Configurando as Conexões (adicione um arquivo em C:\Users\{seu usuário}\.dbt\profiles.yml) deixei arquivos exemplo na raiz do projeto
-```bash
-./profiles-example.yml
-./example.env
-```
+### 4. Configurando as Conexões
+Para que os containers se comuniquem corretamente com o seu banco de dados, utilize os arquivos de exemplo disponibilizados na raiz do projeto como guia:
+
+ - Copie o arquivo ./example.env para um novo arquivo chamado .env e preencha com as suas credenciais do Supabase.
+
+ - Mapeie o arquivo de credenciais do dbt (profiles.yml) apontando para o seu banco conforme o modelo em ./profiles-example.yml.
 
 ### 5. Inicializando a Infraestrutura (Docker Compose)
 ```bash
