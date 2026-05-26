@@ -5,19 +5,19 @@ sources:
     schema: public
     tables:
       - name: stocks
-        description: "This model contains the historical stock prices for various companies."
+        description: "Esse modelo contém os preços históricos das ações de várias empresas."
         columns:
           - name: date
-            description: "The date of the stock price record."
+            description: "A data do registro do preço da ação."
           - name: ticker
-            description: "The stock ticker symbol (e.g., AAPL, MSFT)."
+            description: "O símbolo do ticker da ação (por exemplo, AAPL, MSFT)."
           - name: open
-            description: "The opening price of the stock on the given date."
+            description: "O preço de abertura da ação na data dada."
           - name: close
-            description: "The closing price of the stock on the given date."
+            description: "O preço de fechamento da ação na data dada."
           - name: high
-            description: "The highest price of the stock on the given date."
+            description: "O preço mais alto da ação na data dada."
           - name: low
-            description: "The lowest price of the stock on the given date."
+            description: "O preço mais baixo da ação na data dada."
           - name: volume
-            description: "The trading volume of the stock on the given date."
+            description: "O volume de negociação da ação na data dada."
