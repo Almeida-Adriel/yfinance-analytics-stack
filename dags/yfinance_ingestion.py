@@ -1,9 +1,6 @@
-from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, inspect
-from sqlalchemy import text
 import yfinance as yf
 import os
 
@@ -70,24 +67,3 @@ def ingest_yfinance_data(start_date=None, interval='1d', tickers=tickers):
             print(f"Success! {len(data)} rows inserted via append into table 'stocks'.")
     except Exception as e:
         print(f"Error inserting data into database: {e}")
-
-ingest_yfinance_data(start_date=('2026-05-01'))
-# Define the DAG
-# with DAG(
-#     'yfinance_ingestion',
-#     default_args={
-#         'owner': 'airflow',
-#         'depends_on_past': False,
-#         'start_date': datetime(2026, 5, 22),
-#         'retries': 1,
-#         'retry_delay': timedelta(minutes=5),
-#     },
-#     schedule_interval='@daily',
-# ) as dag:
-    
-#     ingest_task = PythonOperator(
-#         task_id='ingest_yfinance_data',
-#         python_callable=ingest_yfinance_data,
-#     )
-
-#     ingest_task
