@@ -1,64 +1,40 @@
 {% docs __overview__ %}
 
-# 📈 yfinance-analytics-stack
+# yfinance-analytics-stack
 
-Bem-vindo à documentação oficial do **yfinance-analytics-stack**! Este projeto é uma plataforma automatizada de Engenharia de Dados voltada para a captura, transformação e disponibilização de métricas financeiras das principais ações do mercado (AAPL, AMZN, GOOGL, MSFT, NVDA).
-
----
-
-## Arquitetura de Dados
-
-O projeto segue os princípios da **Medallion Architecture** (Camadas Bronze, Silver e Gold), garantindo organização, rastreabilidade e performance:
-
-```
-                        [ Apache Airflow ] ──(Ingestão Diária)──> [ Python / yfinance ]
-                                                      │
-                                                      ▼
-                                              ┌─────────────────┐
-                                              │ PostgreSQL      │
-                                              │ (Supabase)      │
-                                              └────────┬────────┘
-                                                       │
-                                                       ▼
-                                              ┌─────────────────┐
-                                              │     dbt         │
-                                              │  (Transformação)│
-                                              └────────┬────────┘
-                                                       │
-            ┌──────────────────────────────────────────┼──────────────────────────────────────────┐
-            ▼                                          ▼                                          ▼
-    [ Camada BRONZE ]                          [ Camada SILVER ]                          [ Camada GOLD ]
-    Dados brutos (Append)                      Limpeza e Tipagem                          Métricas Avançadas
-    Schema: public.stocks                      Schema: silver.stg_stocks                  Schema: gold.fct_stocks_metrics
-```
+Bem-vindo à documentação técnica da pipeline financeira. Este portal contém o dicionário de dados e a linhagem dos modelos SQL (Lineage Graph)
 
 ---
 
-## Tecnologias Utilizadas
+## Governança e Arquitetura de Tabelas (Medallion)
 
-* **Orquestração:** [Apache Airflow](https://airflow.apache.org/) - Gerencia o agendamento diário e execução da pipeline.
-* **Coleta de Dados:** [yfinance](https://github.com/ranaroussi/yfinance) - Biblioteca Python para consumo da API do Yahoo Finance.
-* **Transformação:** [dbt (data build tool)](https://www.getdbt.com/) - Modelagem, documentação e testes das camadas analíticas.
-* **Banco de Dados:** [Supabase / PostgreSQL](https://supabase.com/) - Infraestrutura de armazenamento em nuvem.
+A modelagem de dados isola o ciclo de vida da informação em três camadas lógicas dentro do PostgreSQL, garantindo que o dashboard em **Streamlit** consuma apenas dados limpos e homologados.
+
+### Camada Bronze (Raw Data)
+* **Objetivo:** Armazenamento bruto dos dados extraídos do Yahoo Finance.
+* **Estratégia de Carga:** Incremental diária via Airflow (*Append-Only*).
+* **Tabela Core:** `public.stocks`
+
+### Camada Silver (Staging & Cleaning)
+* **Objetivo:** Limpeza, padronização de nomenclatura, tratamento de fusos horários e tipagem de dados estruturados (`CAST`).
+* **Regra de Negócio:** Filtra linhas inválidas e garante unicidade por ticker/data.
+* **Modelo dbt:** `silver.stg_stocks`
+
+### Camada Gold (Business & Analytics)
+* **Objetivo:** Tabelas prontas para consumo analítico, agregadas com métricas de performance financeira.
+* **Regra de Negócio:** Aplicação de janelas analíticas (`LAG`, `PARTITION BY`) para computar:
+  * Variação percentual diária do fechamento.
+  * Média móvel acumulada.
+  * Volatilidade e volume financeiro ponderado.
+* **Modelo dbt:** `gold.fct_stocks_metrics`
 
 ---
 
-## 📂 Estrutura do Projeto
+## Navegação Útil
 
-```text
-yfinance-analytics-stack/
-├── app/
-│   └── dags/
-│       └── yfinance_ingestion.py   # Script Airflow (Carga Incremental D-1)
-├── dbt_project/
-│   ├── models/
-│   │   ├── silver/
-│   │   │   ├── schema.yml          # Definição de Sources e Staging
-│   │   │   └── stg_stocks.sql      # Casts e renomeação (Bronze -> Silver)
-│   │   └── gold/
-│   │       └── fct_stocks_metrics.sql # Janelas analíticas (LAG/PARTITION)
-│   └── dbt_project.yml             # Configurações globais do dbt
-└── docker-compose.yml              # Ambiente Airflow/Postgres Local
-```
+Utilize a barra lateral esquerda para explorar os metadados do projeto:
+* **Sources:** Explore a tabela de origem vinda da ingestão (`public.stocks`).
+* **Models:** Detalhe os scripts SQL de transformação, o tipo de materialização (View/Table) e a descrição de cada coluna individualmente.
+* **Lineage Graph:** Clique no botão inferior direito `[ 📊 ]` para visualizar o gráfico de linhagem de ponta a ponta e entender como a camada Gold depende diretamente do Staging.
 
 {% enddocs %}

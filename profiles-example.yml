@@ -1,0 +1,13 @@
+yfinance_analytics_stack:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: aws-1-us-west-2.pooler.supabase.com # Exemplo usando o supabase, mas pode ser qualquer banco postgres
+      port: 6543 # Porta padrão do supabase, mas pode ser a porta do seu banco
+      user: postgres.{ID} # Exemplo usando o supabase, mas pode ser o usuário do seu banco
+      password: "SUA_SENHA_AQUI" # Substitua pela senha do seu banco
+      dbname: postgres # Exemplo usando o supabase, mas pode ser o nome do seu banco
+      schema: bronze  # Esquema onde os dados brutos serão armazenados
+      threads: 4 # Número de threads para execução do dbt
+      keepalives_idle: 0 # Configuração para evitar timeouts em conexões long
