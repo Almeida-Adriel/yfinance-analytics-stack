@@ -9,25 +9,25 @@ Bem-vindo à documentação oficial do **yfinance-analytics-stack**! Este projet
 O projeto segue os princípios da **Medallion Architecture** (Camadas Bronze, Silver e Gold), garantindo organização, rastreabilidade e performance:
 
 ```
-                                  [ Apache Airflow ] ──(Ingestão Diária)──> [ Python / yfinance ]
-                                                             │
-                                                             ▼
-                                                    ┌─────────────────┐
-                                                    │ PostgreSQL      │
-                                                    │ (Supabase)      │
-                                                    └────────┬────────┘
-                                                             │
-                                                             ▼
-                                                    ┌─────────────────┐
-                                                    │     dbt         │
-                                                    │  (Transformação)│
-                                                    └────────┬────────┘
-                                                             │
-                  ┌──────────────────────────────────────────┼──────────────────────────────────────────┐
-                  ▼                                          ▼                                          ▼
-          [ Camada BRONZE ]                          [ Camada SILVER ]                          [ Camada GOLD ]
-          Dados brutos (Append)                      Limpeza e Tipagem                          Métricas Avançadas
-          Schema: public.stocks                      Schema: silver.stg_stocks                  Schema: gold.fct_stocks_metrics
+                            [ Apache Airflow ] ──(Ingestão Diária)──> [ Python / yfinance ]
+                                                       │
+                                                       ▼
+                                              ┌─────────────────┐
+                                              │ PostgreSQL      │
+                                              │ (Supabase)      │
+                                              └────────┬────────┘
+                                                       │
+                                                       ▼
+                                              ┌─────────────────┐
+                                              │     dbt         │
+                                              │  (Transformação)│
+                                              └────────┬────────┘
+                                                       │
+            ┌──────────────────────────────────────────┼──────────────────────────────────────────┐
+            ▼                                          ▼                                          ▼
+    [ Camada BRONZE ]                          [ Camada SILVER ]                          [ Camada GOLD ]
+    Dados brutos (Append)                      Limpeza e Tipagem                          Métricas Avançadas
+    Schema: public.stocks                      Schema: silver.stg_stocks                  Schema: gold.fct_stocks_metrics
 ```
 
 ---
