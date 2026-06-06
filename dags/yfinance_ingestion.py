@@ -1,35 +1,59 @@
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from airflow.sdk import Variable
 from sqlalchemy import create_engine, inspect
 import yfinance as yf
 import os
 
-load_dotenv()
-PASSWORD = os.getenv('DB_PASSWORD')
-HOST = os.getenv('DB_HOST')
-DATABASE = os.getenv('DB_NAME')
+def ingest_yfinance_data(start_date=None, tickers=None, **kwargs):
+    print("=== INICIANDO EXECUÇÃO DA TASK DE INGESTÃO ===")
+    load_dotenv()
 
-tickers=['AAPL', 'AMZN', 'GOOGL', 'MSFT', 'NVDA'] # Example tickers for analysis
+    PASSWORD = os.getenv('DB_PASSWORD')
+    HOST = os.getenv('DB_HOST')
+    PORT = os.getenv('DB_PORT')
+    DATABASE = os.getenv('DB_NAME')
+    USER = os.getenv('DB_USER')
 
-def ingest_yfinance_data(start_date=None, interval='1d', tickers=tickers):
+    # Captura de Tickers
+    try:
+        if tickers is None:
+            tickers_var = Variable.get("TICKERS", default="AAPL,MSFT,GOOGL").split(",")
+            tickers = [t.strip().upper() for t in tickers_var]
+        print(f"Tickers selecionados: {tickers}")
+    except Exception as e:
+        print(f"Erro ao ler variáveis de TICKERS: {e}. Usando fallback AAPL.")
+        tickers = ["AAPL"]
 
-    engine = create_engine(f'postgresql://postgres:{PASSWORD}@{HOST}:5432/{DATABASE}')
+    # 2. SE NENHUMA DATA FOI PASSADA VIA DAG, busca a Variável do Airflow
+    if start_date is None:
+        # Tenta buscar a variável. Se não existir no painel, retorna None
+        start_date = Variable.get("START_DATE", default=None)
+        if start_date:
+            print(f"Data de início capturada via Airflow Variable (START_DATE): {start_date}")
 
-    if start_date is not None or datetime.strptime(start_date, '%Y-%m-%d') < datetime.now() - timedelta(days=30):
-        print(f"start_date {start_date} is more than 30 days ago. Adjusting for initial load. start_date set to {(datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')}")
-        start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-    else:
-        inspector = inspect(engine) # Check if the table exists
+    connection_url = f'postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}'
+    engine = create_engine(connection_url)
 
+    # 3. Lógica de decisão da data (Modificada para aceitar a variável)
+    if start_date is not None and start_date.strip() != "":
+        try:
+            datetime.strptime(start_date.strip(), '%Y-%m-%d')
+            start_date = start_date.strip()
+        except ValueError:
+            print(f"Formato inválido para start_date recebido: {start_date}. Usando fallback automático.")
+            start_date = None
+
+    # Se ainda for None (Variável não existe e nem foi passada por parâmetro), roda modo inteligente
+    if start_date is None:
+        inspector = inspect(engine)
         if 'stocks' in inspector.get_table_names():
             start_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
-            print(f"table 'stocks' detectada. Modo incremental ativado para a data: {start_date}")
-
+            print(f"table 'stocks' detectada. Modo incremental ativado automaticamente para: {start_date}")
         else:
             start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
-            print(f"table 'stocks' NÃO encontrada. Fazendo carga inicial desde: {start_date}")
+            print(f"table 'stocks' NÃO encontrada. Fazendo carga inicial automática desde: {start_date}")
 
-    # Validate start_date format and reasonable year to avoid DST/parsing issues
     try:
         parsed_start = datetime.strptime(start_date, '%Y-%m-%d')
     except Exception as e:
@@ -46,24 +70,25 @@ def ingest_yfinance_data(start_date=None, interval='1d', tickers=tickers):
     tickers = [t.upper() for t in tickers]
 
     try:
-        data = yf.download(tickers, start=start_date)
+        print(f"Iniciando download do yfinance para {tickers} desde {start_date}...")
+        data = yf.download(tickers, start=start_date, timeout=15)
     except Exception as e:
-        print(f"Error downloading data for {tickers}: {e}")
+        print(f"Erro ou Timeout no download do yfinance: {e}")
         return
 
     if data.empty:
-        print(f"Any data found for {tickers}.")
+        print(f"Nenhum dado encontrado para {tickers} no período solicitado.")
         return
 
-    # Reshape the DataFrame
-    data = data.stack(level=1)
+    # Reshape do DataFrame
+    data = data.stack(level=1, future_stack=True)
     data.reset_index(inplace=True)
     data.columns = [str(col).lower() for col in data.columns]
 
-    # Ingest data into the database
+    # Ingestão dos dados
     try:
         with engine.connect() as connection:
             data.to_sql('stocks', con=connection, if_exists='append', index=False)
-            print(f"Success! {len(data)} rows inserted via append into table 'stocks'.")
+            print(f"Sucesso! {len(data)} linhas inseridas.")
     except Exception as e:
         print(f"Error inserting data into database: {e}")

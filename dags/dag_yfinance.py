@@ -1,8 +1,9 @@
 from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
+from airflow.providers.standard.operators.python import PythonOperator
+from airflow.providers.standard.operators.bash import BashOperator
 from datetime import datetime, timedelta
 
+# Importa a função do arquivo vizinho
 from yfinance_ingestion import ingest_yfinance_data
 
 # Configurações padrão da DAG
@@ -21,18 +22,19 @@ with DAG(
     'pipeline_yfinance_diaria',
     default_args=default_args,
     description='Pipeline diária para atualizar dados de ações no Supabase',
-    schedule_interval='0 0 * * *', # Expressão Cron para: "Todo dia à meia-noite"
-    catchup=False # Impede o Airflow de tentar rodar todos os dias passados desde o start_date
+    schedule=None, # '0 0 * * *'
+    catchup=False
 ) as dag:
 
     task_ingestao = PythonOperator(
         task_id='executar_ingestao_yfinance',
         python_callable=ingest_yfinance_data,
+        op_kwargs={'start_date': None, 'tickers': None},
     )
 
     task_dbt = BashOperator(
         task_id='executar_transformacao_dbt',
-        bash_command='dbt run --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project',
+        bash_command='dbt run --project-dir /usr/local/airflow/dbt_project --profiles-dir /usr/local/airflow/dbt_project',
     )
 
     task_ingestao >> task_dbt

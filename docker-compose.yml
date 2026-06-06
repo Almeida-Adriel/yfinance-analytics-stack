@@ -1,26 +1,37 @@
 services:
-  # --- SERVIÇO DO AIRFLOW (ORQUESTRADOR & TRANSFORMAÇÃO DBT) ---
-  airflow-runner:
-    image: apache/airflow:2.9.1-python3.11
+  postgres-app:
+    image: postgres:16
     environment:
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - _PIP_ADDITIONAL_REQUIREMENTS=-r /opt/airflow/requirements.txt
-      - AIRFLOW_CONSTRAINTS_LOCATION=https://raw.githubusercontent.com/apache/airflow/constraints-2.9.1/constraints-3.11.txt
-    volumes:
-      - ./app:/opt/airflow/app
-      - ./dags:/opt/airflow/dags
-      - ./dbt_project:/opt/airflow/dbt_project
-      - ./requirements.txt:/opt/airflow/requirements.txt
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
     ports:
-      - "8080:8080"
-    entrypoint: /usr/bin/dumb-init -- /entrypoint
-    command: >
-      bash -c "airflow db migrate && 
-      airflow users create --username admin --firstname Admin --lastname Admin --role Admin --email admin@admin.com --password admin ; 
-      dbt docs generate --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project ;
-      airflow webserver & airflow scheduler"
+      - "5433:5432"
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    networks:
+      - astro-net
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
 
-  # --- SERVIÇO DO STREAMLIT (VISUALIZAÇÃO / DASHBOARD) ---
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    networks:
+      - astro-net
+    restart: always
+    depends_on:
+      postgres-app:
+        condition: service_healthy
+
   streamlit-app:
     image: python:3.11-slim
     environment:
@@ -30,16 +41,16 @@ services:
     working_dir: /workspace
     ports:
       - "8501:8501"
+    networks:
+      - astro-net
     command: >
-      sh -c "pip install -r requirements.txt && 
+      sh -c "pip install -r requirements-streamlit.txt && 
       streamlit run app/app.py --server.port=8501 --server.address=0.0.0.0"
     restart: always
 
-  # --- SERVIÇO DO DBT DOCS (PAINEL DE DOCUMENTAÇÃO ESTÁTICO) ---
-  dbt-docs:
-    image: nginx:alpine
-    ports:
-      - "8081:80"
-    volumes:
-      - ./dbt_project/target:/usr/share/nginx/html:ro
-    restart: always
+volumes:
+  postgres-db-volume:
+
+networks:
+  astro-net:
+    name: astro-net
