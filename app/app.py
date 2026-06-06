@@ -6,18 +6,18 @@ import os
 
 dotenv.load_dotenv()
 
-# 1. Configurações de conexão com o Supabase (Substitua pelas suas credenciais)
 PASSWORD = os.getenv('DB_PASSWORD')
 HOST = os.getenv('DB_HOST')
 PORT = os.getenv('DB_PORT')
 DATABASE = os.getenv('DB_NAME')
-PROJECT_ID = os.getenv('DB_PROJECT_ID')
+USER = os.getenv('DB_USER')
 
 
 @st.cache_data
 def load_data():
     # Criamos a conexão com o banco
-    engine = create_engine(f'postgresql://postgres.{PROJECT_ID}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}')
+    connection_url = f'postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DATABASE}'
+    engine = create_engine(connection_url)
     
     # Buscamos os dados da camada Gold
     query = "SELECT * FROM bronze_gold.fct_stocks_metrics"

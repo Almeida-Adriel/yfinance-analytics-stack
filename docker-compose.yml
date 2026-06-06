@@ -1,26 +1,189 @@
+# --- CONFIGURAÇÃO COMPARTILHADA (ÂNCORA) ---
+x-airflow-common:
+  &airflow-common
+  # Usa a imagem oficial diretamente da internet
+  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.2.2}
+  env_file: .env
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__CORE__FERNET_KEY: ${FERNET_KEY}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+    # Instala o seu arquivo de requisitos automaticamente ao subir cada container
+    _PIP_ADDITIONAL_REQUIREMENTS: -r /opt/airflow/requirements.txt
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./app:/opt/airflow/app
+    - ./dbt_project:/opt/airflow/dbt_project
+    - ./requirements.txt:/opt/airflow/requirements.txt
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    &airflow-common-depends-on
+    redis:
+      condition: service_healthy
+    postgres:
+      condition: service_healthy
+
 services:
-  # --- SERVIÇO DO AIRFLOW (ORQUESTRADOR & TRANSFORMAÇÃO DBT) ---
-  airflow-runner:
-    image: apache/airflow:2.9.1-python3.11
+  # --- BANCO DE DADOS ---
+  postgres:
+    image: postgres:16
     environment:
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - _PIP_ADDITIONAL_REQUIREMENTS=-r /opt/airflow/requirements.txt
-      - AIRFLOW_CONSTRAINTS_LOCATION=https://raw.githubusercontent.com/apache/airflow/constraints-2.9.1/constraints-3.11.txt
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    ports:
+      - "5432:5432"
     volumes:
-      - ./app:/opt/airflow/app
-      - ./dags:/opt/airflow/dags
-      - ./dbt_project:/opt/airflow/dbt_project
-      - ./requirements.txt:/opt/airflow/requirements.txt
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
+  # --- MENSAGERIA / FILA ---
+  redis:
+    image: redis:7.2-bookworm
+    expose:
+      - 6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+    restart: always
+
+  # --- AIRFLOW: SERVIDOR DA API E INTERFACE WEB ---
+  airflow-apiserver:
+    <<: *airflow-common
+    command: api-server
     ports:
       - "8080:8080"
-    entrypoint: /usr/bin/dumb-init -- /entrypoint
-    command: >
-      bash -c "airflow db migrate && 
-      airflow users create --username admin --firstname Admin --lastname Admin --role Admin --email admin@admin.com --password admin ; 
-      dbt docs generate --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project ;
-      airflow webserver & airflow scheduler"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
 
-  # --- SERVIÇO DO STREAMLIT (VISUALIZAÇÃO / DASHBOARD) ---
+  # --- AIRFLOW: AGENDADOR ---
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # --- AIRFLOW: PROCESSADOR DE DAGS ---
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # --- AIRFLOW: EXECUTOR DE TAREFAS (ONDE O DBT E YFINANCE RODAM) ---
+  airflow-worker:
+    <<: *airflow-common
+    command: celery worker
+    healthcheck:
+      test: ["CMD-SHELL", 'celery --app airflow.providers.celery.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}" || celery --app airflow.executors.celery_executor.app inspect ping -d "celery@$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    environment:
+      <<: *airflow-common-env
+      DUMB_INIT_SETSID: "0"
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-apiserver:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+
+  # --- AIRFLOW: GATILHO DE TAREFAS ASSÍNCRONAS ---
+  airflow-triggerer:
+    <<: *airflow-common
+    command: triggerer
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type TriggererJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  # --- AIRFLOW: INICIALIZADOR DO BANCO (RODA E FECHA) ---
+  airflow-init:
+    <<: *airflow-common
+    command: version
+    environment:
+      &airflow-common-env
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql+psycopg2://airflow:airflow@postgres/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+      AIRFLOW__CORE__FERNET_KEY: '46BKJoZJD08p0ga6Zs6gR37E9V6H3s9Z3fE777I_1N4='
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8080/execution/'
+      AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+      _PIP_ADDITIONAL_REQUIREMENTS: -r /opt/airflow/requirements.txt
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin
+
+  # --- INTERFACE VISUAL DO BANCO (PGADMIN) ---
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # --- SERVIÇO DO STREAMLIT ---
   streamlit-app:
     image: python:3.11-slim
     environment:
@@ -31,15 +194,9 @@ services:
     ports:
       - "8501:8501"
     command: >
-      sh -c "pip install -r requirements.txt && 
+      sh -c "pip install -r requirements-streamlit.txt && 
       streamlit run app/app.py --server.port=8501 --server.address=0.0.0.0"
     restart: always
 
-  # --- SERVIÇO DO DBT DOCS (PAINEL DE DOCUMENTAÇÃO ESTÁTICO) ---
-  dbt-docs:
-    image: nginx:alpine
-    ports:
-      - "8081:80"
-    volumes:
-      - ./dbt_project/target:/usr/share/nginx/html:ro
-    restart: always
+volumes:
+  postgres-db-volume:
