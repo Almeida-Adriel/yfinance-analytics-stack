@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from airflow.models import Variable
+from airflow.sdk import Variable
 from sqlalchemy import create_engine, inspect
 import yfinance as yf
 import os
@@ -18,7 +18,7 @@ def ingest_yfinance_data(start_date=None, tickers=None, **kwargs):
     # Captura de Tickers
     try:
         if tickers is None:
-            tickers_var = Variable.get("TICKERS", default_var="AAPL,MSFT,GOOGL").split(",")
+            tickers_var = Variable.get("TICKERS", default="AAPL,MSFT,GOOGL").split(",")
             tickers = [t.strip().upper() for t in tickers_var]
         print(f"Tickers selecionados: {tickers}")
     except Exception as e:
@@ -28,7 +28,7 @@ def ingest_yfinance_data(start_date=None, tickers=None, **kwargs):
     # 2. SE NENHUMA DATA FOI PASSADA VIA DAG, busca a Variável do Airflow
     if start_date is None:
         # Tenta buscar a variável. Se não existir no painel, retorna None
-        start_date = Variable.get("START_DATE", default_var=None)
+        start_date = Variable.get("START_DATE", default=None)
         if start_date:
             print(f"Data de início capturada via Airflow Variable (START_DATE): {start_date}")
 
@@ -81,7 +81,7 @@ def ingest_yfinance_data(start_date=None, tickers=None, **kwargs):
         return
 
     # Reshape do DataFrame
-    data = data.stack(level=1)
+    data = data.stack(level=1, future_stack=True)
     data.reset_index(inplace=True)
     data.columns = [str(col).lower() for col in data.columns]
 

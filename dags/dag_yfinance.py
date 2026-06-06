@@ -1,6 +1,6 @@
 from airflow import DAG
-from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
+from airflow.providers.standard.operators.python import PythonOperator
+from airflow.providers.standard.operators.bash import BashOperator
 from datetime import datetime, timedelta
 
 # Importa a função do arquivo vizinho
@@ -34,7 +34,7 @@ with DAG(
 
     task_dbt = BashOperator(
         task_id='executar_transformacao_dbt',
-        bash_command='dbt run --project-dir /opt/airflow/dbt_project --profiles-dir /opt/airflow/dbt_project',
+        bash_command='dbt run --project-dir /usr/local/airflow/dbt_project --profiles-dir /usr/local/airflow/dbt_project',
     )
 
     task_ingestao >> task_dbt

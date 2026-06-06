@@ -1,3 +1,6 @@
 .env
 .venv
 /logs
+.profiles.yml
+/target
+/.astro
