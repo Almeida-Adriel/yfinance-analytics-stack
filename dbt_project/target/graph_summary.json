@@ -1,0 +1,1 @@
+{"_invocation_id": "11742a2a-1581-4c33-b324-5530e5494959", "linked": {"0": {"name": "source.yfinance_analytics.postgres.stocks", "type": "source", "succ": [2]}, "1": {"name": "model.yfinance_analytics.fct_stocks_metrics", "type": "model"}, "2": {"name": "model.yfinance_analytics.stg_stocks", "type": "model", "succ": [1]}}}

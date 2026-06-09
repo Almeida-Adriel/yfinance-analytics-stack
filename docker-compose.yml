@@ -47,6 +47,14 @@ services:
       sh -c "pip install -r requirements-streamlit.txt && 
       streamlit run app/app.py --server.port=8501 --server.address=0.0.0.0"
     restart: always
+  
+  dbt-docs:
+    image: nginx:alpine
+    ports:
+      - "8081:80"
+    volumes:
+      - ./dbt_project/target:/usr/share/nginx/html:ro
+    restart: always
 
 volumes:
   postgres-db-volume:

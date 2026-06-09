@@ -62,7 +62,7 @@ except Exception as e:
     st.stop()
 
 # 3. Construção da Interface do Streamlit (UI/UX)
-st.title("📈 Dashboard de Análise de Ações")
+st.title("Dashboard de Análise de Ações")
 st.markdown("Dados integrados via Airflow, transformados com dbt e armazenados.")
 
 # --- Componentes da Barra Lateral (Filtros) ---

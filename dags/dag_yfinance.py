@@ -22,7 +22,7 @@ with DAG(
     'pipeline_yfinance_diaria',
     default_args=default_args,
     description='Pipeline diária para atualizar dados de ações no Supabase',
-    schedule=None, # '0 0 * * *'
+    schedule= '0 0 * * *',
     catchup=False
 ) as dag:
 
