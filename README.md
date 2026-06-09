@@ -108,6 +108,6 @@ docker-compose up -d
 | Serviço / Aplicação | URL Local | Credenciais de Acesso |
 | :--- | :--- | :--- |
 | **Apache Airflow Webserver** | [http://localhost:8080](http://localhost:8080) | Usuário: `admin` \| Senha: `admin` |
-| **Banco de Dados pgadmin** | [http://localhost:8080](http://localhost:5050) | Usuário: `admin@admin.com` \| Senha: `admin` |
+| **Banco de Dados pgadmin** | [http://localhost:5050](http://localhost:5050) | Usuário: `admin@admin.com` \| Senha: `admin` |
 | **dbt Docs (Portal Interativo)** | [http://localhost:8081](http://localhost:8081) | Acesso Livre |
 | **Streamlit Analytics Dashboard** | [http://localhost:8501](http://localhost:8501) | Acesso Livre |
