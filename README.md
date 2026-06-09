@@ -15,7 +15,7 @@ O projeto segue os princípios da **Medallion Architecture** (Camadas Bronze, Si
     classDef highlight fill:#1f6feb,stroke:#58a6ff,stroke-width:2px,color:#ffffff;
     classDef bronze fill:#8b5a2b,stroke:#a0522d,stroke-width:1px,color:#ffffff;
     classDef silver fill:#708090,stroke:#778899,stroke-width:1px,color:#ffffff;
-    classDef gold fill:#d4af37,stroke:#b8860b,stroke-width:1px,color:#000000;
+    classDef gold fill:#d4af37,stroke:#b8860b,stroke-width:1px,color:#ffffff;
 
     %% Nós Principais do Pipeline
     Airflow[Apache Airflow] --->|Ingestão Diária| Python[Python / yfinance]
