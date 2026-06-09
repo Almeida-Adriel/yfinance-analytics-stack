@@ -8,26 +8,52 @@ Bem-vindo à documentação oficial do **yfinance-analytics-stack**! Este projet
 
 O projeto segue os princípios da **Medallion Architecture** (Camadas Bronze, Silver e Gold), garantindo organização, rastreabilidade e performance:
 
-```
-                        [ Apache Airflow ] ──(Ingestão Diária)──> [ Python / yfinance ]
-                                                   │
-                                                   ▼
-                                          ┌─────────────────┐
-                                          │    PostgreSQL   │
-                                          │      Local      │
-                                          └────────┬────────┘
-                                                   │
-                                                   ▼
-                                          ┌─────────────────┐
-                                          │       dbt       │
-                                          │ (Transformação) │
-                                          └────────┬────────┘
-                                                   │
-        ┌──────────────────────────────────────────┼──────────────────────────────────────────┐
-        ▼                                          ▼                                          ▼
-[ Camada BRONZE ]                          [ Camada SILVER ]                          [ Camada GOLD ]
-Dados brutos (Append)                      Limpeza e Tipagem                          Métricas Avançadas
-Schema: public.stocks                      Schema: silver.stg_stocks                  Schema: gold.fct_stocks_metrics
+```mermaid
+    graph TD
+    %% Definição de Estilos Gerais
+    classDef default fill:#111216,stroke:#30363d,stroke-width:1px,color:#e6edf3;
+    classDef highlight fill:#1f6feb,stroke:#58a6ff,stroke-width:2px,color:#ffffff;
+    classDef bronze fill:#8b5a2b,stroke:#a0522d,stroke-width:1px,color:#ffffff;
+    classDef silver fill:#708090,stroke:#778899,stroke-width:1px,color:#ffffff;
+    classDef gold fill:#d4af37,stroke:#b8860b,stroke-width:1px,color:#000000;
+
+    %% Nós Principais do Pipeline
+    Airflow[Apache Airflow] --->|Ingestão Diária| Python[Python / yfinance]
+    Python --> Postgres[PostgreSQL Local]
+    Postgres --> DBT[dbt Transformação]
+
+    %% Divisão da Arquitetura Medallion
+    DBT --> Bronze
+    DBT --> Silver
+    DBT --> Gold
+
+    %% Sub-estruturas de detalhes de cada Camada
+    subgraph Bronze [Camada BRONZE]
+        B_Desc[Ingestão Incremental Inteligente]
+        B_Schema[Schema: public.stocks]
+    end
+
+    subgraph Silver [Camada SILVER]
+        S_Desc[Limpeza e Tipagem dos Dados]
+        S_Schema[Schema: public_silver]
+    end
+
+    subgraph Gold [Camada GOLD]
+        G_Desc[Métricas de Negócio: Retorno, Volatilidade e Liquidez]
+        G_Schema[Schema: public_gold]
+    end
+
+    %% Aplicação dos Estilos nos Componentes
+    class Airflow,Python highlight;
+    class Postgres,DBT default;
+    class Bronze,B_Desc,B_Schema bronze;
+    class Silver,S_Desc,S_Schema silver;
+    class Gold,G_Desc,G_Schema gold;
+
+    %% Ajustes visuais do Subgraph
+    style Bronze fill:#1a1512,stroke:#8b5a2b;
+    style Silver fill:#14171a,stroke:#708090;
+    style Gold fill:#1a1912,stroke:#d4af37;
 ```
 
 ---
