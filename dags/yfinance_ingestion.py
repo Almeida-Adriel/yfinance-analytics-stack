@@ -1,12 +1,31 @@
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 from airflow.sdk import Variable
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 import yfinance as yf
 import os
 
+def postgres_upsert_method(table, conn, keys, data_iter):
+    """
+    Método customizado para o pandas to_sql que executa um 
+    INSERT ... ON CONFLICT DO NOTHING no PostgreSQL.
+    """
+    # Converte os dados do iterador em uma lista de dicionários mapeados pelas colunas
+    data = [dict(zip(keys, row)) for row in data_iter]
+    
+    # Cria a instrução de inserção baseada na tabela alvo do SQLAlchemy
+    insert_stmt = pg_insert(table.table).values(data)
+    
+    # Define o que fazer em caso de conflito. 
+    upsert_stmt = insert_stmt.on_conflict_do_nothing(
+        index_elements=['date', 'ticker'] # Colunas que formam a chave única
+    )
+    
+    # Executa a query
+    conn.execute(upsert_stmt)
+
 def ingest_yfinance_data(start_date=None, tickers=None, **kwargs):
-    print("=== INICIANDO EXECUÇÃO DA TASK DE INGESTÃO ===")
     load_dotenv()
 
     PASSWORD = os.getenv('DB_PASSWORD')
@@ -85,10 +104,44 @@ def ingest_yfinance_data(start_date=None, tickers=None, **kwargs):
     data.reset_index(inplace=True)
     data.columns = [str(col).lower() for col in data.columns]
 
-    # Ingestão dos dados
+    inspector = inspect(engine)
+    table_exists = 'stocks' in inspector.get_table_names()
+
+    # Garantia física da restrição de unicidade ANTES da primeira inserção inteligente
+    with engine.begin() as connection:
+        if table_exists:
+            # Cria a constraint caso a tabela já exista mas não tenha a regra aplicada
+            connection.execute(text("""
+                DO $$
+                BEGIN
+                    IF NOT EXISTS (
+                        SELECT 1 FROM pg_constraint WHERE conname = 'unique_date_ticker'
+                    ) THEN
+                        ALTER TABLE stocks ADD CONSTRAINT unique_date_ticker UNIQUE (date, ticker);
+                    END IF;
+                END $$;
+            """))
+
+    # Ingestão inteligente com tratamento de conflito
     try:
-        with engine.connect() as connection:
-            data.to_sql('stocks', con=connection, if_exists='append', index=False)
-            print(f"Sucesso! {len(data)} linhas inseridas.")
+        with engine.begin() as connection:
+            # Se a tabela não existir, o pandas cria ela primeiro
+            # Se ela já existe, usamos o nosso método modificado de upsert
+            data.to_sql(
+                'stocks', 
+                con=connection, 
+                if_exists='append', 
+                index=False,
+                method=postgres_upsert_method if table_exists else None
+            )
+            
+            # Se a tabela acabou de ser criada agora pelo pandas, aplicamos a constraint para as próximas execuções
+            if not table_exists:
+                connection.execute(text("""
+                    ALTER TABLE stocks ADD CONSTRAINT unique_date_ticker UNIQUE (date, ticker);
+                """))
+                
+            print(f"Processamento concluído. Dados enviados para validação de conflito no banco.")
+            
     except Exception as e:
         print(f"Error inserting data into database: {e}")
