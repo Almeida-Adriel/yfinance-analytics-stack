@@ -1,6 +1,7 @@
 target/compiled
 target/run
 dbt_packages/
+/logs
 *.log
 .user.yml
 
